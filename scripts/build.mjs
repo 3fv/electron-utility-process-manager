@@ -9,13 +9,8 @@ const scriptDir = import.meta.dirname
 const rootDir = Path.resolve(scriptDir, "..")
 const libDir = Path.join(rootDir, "lib")
 const libExamplesDir = Path.join(rootDir, "lib-examples-cjs")
-const cjsDir = Path.join(libDir, "cjs")
-const mjsDir = Path.join(libDir, "mjs")
 
 Sh.rm("-rf", libDir, libExamplesDir)
-
-const cjsJsonFile = Path.join(cjsDir, "package.json")
-const mjsJsonFile = Path.join(mjsDir, "package.json")
 
 const rawArgv = process.argv.slice(2)
 
@@ -31,7 +26,7 @@ const die = (msg, exitCode = 1, err = null) => {
       err.toString()
     }
   }
-  
+
   echo`ERROR: ${msg}`
   process.exit(exitCode)
 }
@@ -46,32 +41,6 @@ const run = (...args) => {
     )
   )
 }
-
-Sh.mkdir("-p", mjsDir, cjsDir)
-
-const cjsJson = `{
-    "type": "commonjs",
-    "main": "./index.js",
-    "module": "./index.js"
-}`, mjsJson = `{
-    "type": "module",
-    "main": "./index.js",
-    "module": "./index.js"
-}`
-
-// "exports": {
-//   ".": {
-//     "types": "./index.d.ts",
-//       "default": "./index.js"
-//   },
-//   "./appenders/FileAppender.js": {
-//     "types": "./appenders/FileAppender.d.ts",
-//       "default": "./appenders/FileAppender.js"
-//   }
-// }
-
-Fs.outputFileSync(cjsJsonFile, cjsJson, { encoding: "utf-8" })
-Fs.outputFileSync(mjsJsonFile, mjsJson, { encoding: "utf-8" })
 
 const tscArgs = ["-b", "tsconfig.json", ...rawArgv, "--preserveWatchOutput"]
 

@@ -8,10 +8,6 @@
     "url": "https://github.com/3fv/electron-utility-process-manager/issues"
   },
   "homepage": "https://github.com/3fv/electron-utility-process-manager#readme",
-  "type": "commonjs",
-  "main": "./lib/cjs/index.js",
-  "module": "./lib/mjs/index.js",
-  "types": "./lib/mjs/index.d.ts",
   "exports": {
     ".": {
       "types": "./lib/mjs/index.d.ts",
@@ -38,6 +34,22 @@
       "node": "./lib/cjs/node/index.js",
       "import": "./lib/mjs/node/index.js",
       "require": "./lib/cjs/node/index.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "node": [
+        "./lib/cjs/node/index.d.ts"
+      ],
+      "main": [
+        "./lib/cjs/main/index.d.ts"
+      ],
+      "renderer": [
+        "./lib/cjs/renderer/index.d.ts"
+      ],
+      "common": [
+        "./lib/cjs/common/index.d.ts"
+      ]
     }
   },
   "scripts": {
