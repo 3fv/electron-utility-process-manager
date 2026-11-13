@@ -2,7 +2,7 @@ import { isDefined, isFunction } from "@3fv/guard"
 import { isMessagePort, isUtilityProcess } from "./guards.js"
 import Tracer from "tracer"
 import { ClientEventHandlers } from "./events.js"
-import { toRequestError } from "./errors.js"
+import { toCancelledError, toRequestError } from "./errors.js"
 import {
   ClientEventHandler,
   Defaults,
@@ -132,6 +132,13 @@ export class MessagePortClient<
   private readonly eventHandlers_ = new ClientEventHandlers()
   
   /**
+   * Set once the client is closed, or its port closed
+   *
+   * @private
+   */
+  private closed_: boolean = false
+  
+  /**
    * Get the next `messageId`
    *
    * @returns {number}
@@ -147,16 +154,45 @@ export class MessagePortClient<
    * @param {number} messageId
    * @private
    */
-  private removePendingMessage(messageId: number): void {
+  private removePendingMessage(
+    messageId: number,
+    reason: string = "The request was removed before a response arrived"
+  ): void {
     const pending = this.pendingMessages_.get(messageId)
     if (!pending) {
       return
     }
     clearTimeout(pending.timeoutId)
     if (!pending.deferred.isSettled()) {
-      pending.deferred.reject("The pending message is being removed before promise is settled")
+      pending.deferred.reject(toCancelledError(reason))
     }
     this.pendingMessages_.delete(messageId)
+  }
+  
+  /**
+   * Reject every pending request
+   *
+   * @param reason why the requests are cancelled
+   * @private
+   */
+  private cancelAllPendingMessages(reason: string): void {
+    for (const messageId of [...this.pendingMessages_.keys()]) {
+      this.removePendingMessage(messageId, reason)
+    }
+  }
+  
+  /**
+   * The port closed or the `utilityProcess` exited, no response
+   * can arrive anymore, so every pending request is rejected
+   *
+   * @private
+   */
+  private onPortClose(): void {
+    if (this.closed_) {
+      return
+    }
+    this.closed_ = true
+    this.cancelAllPendingMessages(`The port of client (${this.clientId}) closed before a response arrived`)
   }
   
   /**
@@ -207,9 +243,9 @@ export class MessagePortClient<
       if (!!error) {
         log.error(error)
         pending.deferred.reject(toRequestError(error, errorDetail))
-        return
+      } else {
+        pending.deferred.resolve(result)
       }
-      pending.deferred.resolve(result)
       this.removePendingMessage(messageId)
     } catch (err) {
       log.error(`Failed to handle message`, err)
@@ -246,8 +282,16 @@ export class MessagePortClient<
       pending: PendingRequestMessage<ReqMap, Type, R> = {
         deferred: new Deferred<R>(),
         messageId,
-        timeoutId: setTimeout(() => this.removePendingMessage(messageId), Defaults.RequestTimeout)
+        timeoutId: setTimeout(
+          () => this.removePendingMessage(messageId, `The request (${String(type)}) timed out`),
+          Defaults.RequestTimeout
+        )
       }
+    
+    if (this.closed_) {
+      clearTimeout(pending.timeoutId)
+      throw toCancelledError(`The client (${this.clientId}) is closed`)
+    }
     
     this.pendingMessages_.set(messageId, pending)
     const payload: NodeMessage<ReqMap, Type> = {
@@ -267,7 +311,20 @@ export class MessagePortClient<
     }
   }
   
+  /**
+   * Close the client: every pending request is rejected
+   * with a `UPMRequestError` (`code` is `RequestCancelledCode`),
+   * later requests are rejected the same way & the port is closed
+   */
   close(): void {
+    if (this.closed_) {
+      return
+    }
+    this.closed_ = true
+    this.cancelAllPendingMessages(`The client (${this.clientId}) was closed before a response arrived`)
+    if (isMessagePort(this.port)) {
+      this.port.close()
+    }
   }
   
   whenReady(): Promise<this> {
@@ -299,12 +356,21 @@ export class MessagePortClient<
    */
   constructor(readonly clientId: string, readonly port: Port) {
     if (isMessagePort(port) || isUtilityProcess(port)) {
+      // A `MessagePort` reports the loss of its other end
+      // with `close`, a `UtilityProcess` its end with `exit`
+      const closeEvent = isMessagePort(port) ? "close" : "exit"
       if (isFunction(port?.["addEventListener"])) {
         ;(
           port as any
         ).addEventListener("message", this.onMessage.bind(this))
+        ;(
+          port as any
+        ).addEventListener(closeEvent, this.onPortClose.bind(this))
       } else {
         port.on("message", this.onMessage.bind(this))
+        ;(
+          port as any
+        ).on(closeEvent, this.onPortClose.bind(this))
       }
       if (isMessagePort(port))
         port.start()

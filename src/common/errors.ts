@@ -90,3 +90,24 @@ export function toMessageError(err: any): MessageError {
 export function toRequestError(error: string, errorDetail?: MessageError): UPMRequestError {
   return new UPMRequestError(errorDetail ?? { message: error })
 }
+
+/**
+ * The `code` of the error a pending request rejects with when it is
+ * cancelled before a response arrived: its client was closed, its port
+ * closed, the `utilityProcess` exited or the request timed out
+ */
+export const RequestCancelledCode = "UPM_REQUEST_CANCELLED"
+
+/**
+ * Create the error a pending request rejects with when
+ * it is cancelled before a response arrived
+ *
+ * @param reason why the request was cancelled
+ */
+export function toCancelledError(reason: string): UPMRequestError {
+  return new UPMRequestError({
+    message: reason,
+    name: "UPMRequestCancelledError",
+    code: RequestCancelledCode
+  })
+}

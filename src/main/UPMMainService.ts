@@ -176,6 +176,12 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
   
   private messageChannels_ = new Map<string, MessageChannelMain>()
   
+  /**
+   * Clients created with `createMainClient`, by `clientId`; each is
+   * closed with its channel so its pending requests are rejected
+   */
+  private mainClients_ = new Map<string, UPM.MessagePortClient<ReqMap, MType>>()
+  
   private onServiceExit(code:number) {
     log.warn(`Service Exit (code=${code})`)
     let deferred = this.killDeferred_
@@ -229,10 +235,12 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
    * @returns {UPM.MessagePortClient}
    */
   createMainClient(clientId:string):UPM.MessagePortClient<ReqMap, MType> {
-    return new UPM.MessagePortClient(
+    const client = new UPM.MessagePortClient<ReqMap, MType>(
         clientId,
         this.createMessageChannel(clientId)
     )
+    this.mainClients_.set(clientId, client)
+    return client
   }
   
   /**
@@ -349,13 +357,14 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
         return
       }
       
-      this.removePendingMessage(messageId)
+      // SETTLE FIRST, `removePendingMessage` REJECTS AN UNSETTLED REQUEST
       if (!!error) {
         log.error(error)
         pending.deferred.reject(UPM.toRequestError(error, errorDetail))
-        return
+      } else {
+        pending.deferred.resolve(result)
       }
-      pending.deferred.resolve(result)
+      this.removePendingMessage(messageId)
     } catch (err) {
       log.error(`Failed to handle message`, err)
     }
@@ -386,6 +395,13 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
   private closeMessageChannel(id:string, channel:MessageChannelMain) {
     if (this.messageChannels_.has(id)) {
       this.messageChannels_.delete(id)
+    }
+    
+    // A MAIN PROCESS CLIENT ON THIS CHANNEL REJECTS ITS PENDING REQUESTS
+    const client = this.mainClients_.get(id)
+    if (client) {
+      this.mainClients_.delete(id)
+      getValue(() => client.close())
     }
     
     Array(channel.port1, channel.port2)
@@ -464,8 +480,8 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
     }
     clearTimeout(pending.timeoutId)
     if (!pending.deferred.isSettled()) {
-      pending.deferred.reject(
-          "The pending message is being removed before promise is settled")
+      pending.deferred.reject(UPM.toCancelledError(
+          `The request to service (${this.serviceName}) was removed before a response arrived`))
     }
     this.pendingMessages_.delete(messageId)
   }

@@ -94,6 +94,24 @@ try {
 
 `details` must be structured-cloneable, since it crosses the process boundary.
 
+A request that can no longer be answered rejects with a `UPMRequestError` whose
+`code` is `RequestCancelledCode`: the utility process exited, the client's port
+closed, the client was closed with `close()`, or the request timed out. This
+holds for `UPMMainService.executeRequest(...)` and for every port client,
+including those made with `createMainClient(...)`:
+
+```typescript
+import { RequestCancelledCode } from "@3fv/electron-utility-process-manager"
+
+try {
+  await client.executeRequest("load", "data.json")
+} catch (err) {
+  if (err.code === RequestCancelledCode) {
+    console.warn(`The service went away before answering`)
+  }
+}
+```
+
 ### Service exit
 
 `UPMMainService.addExitHandler` reports the exit of the utility process. It

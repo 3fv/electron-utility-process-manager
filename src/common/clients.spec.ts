@@ -1,5 +1,6 @@
 import { EventEmitter } from "events"
 import { MessagePortClient } from "./clients.js"
+import { RequestCancelledCode, UPMRequestError } from "./errors.js"
 import { IPCChannel, MessageKind, Port } from "./types.js"
 
 /**
@@ -16,7 +17,10 @@ class FakePort extends EventEmitter {
   start() {
   }
   
+  closeCount = 0
+  
   close() {
+    this.closeCount++
   }
   
   deliver(payload: any) {
@@ -88,5 +92,46 @@ describe("MessagePortClient", () => {
     
     await expect(pending).resolves.toBe("pong")
     expect(handler).toHaveBeenCalledWith("pushed")
+  })
+  
+  it("rejects with the handler's error & forgets the request", async () => {
+    const { port, client } = newClient(),
+      pending = client.executeRequest("ping", "what"),
+      { messageId } = port.posted[0].payload
+    
+    port.deliver({
+      messageId,
+      kind: MessageKind.Response,
+      type: "ping",
+      error: "boom",
+      errorDetail: { message: "boom", code: "E_BOOM" }
+    })
+    
+    await expect(pending).rejects.toMatchObject({ message: "boom", code: "E_BOOM" })
+    expect((client as any).pendingMessages_.size).toBe(0)
+  })
+  
+  it("rejects every pending request when the port closes", async () => {
+    const { port, client } = newClient(),
+      first = client.executeRequest("ping", "one"),
+      second = client.executeRequest("ping", "two")
+    
+    port.emit("close")
+    
+    await expect(first).rejects.toBeInstanceOf(UPMRequestError)
+    await expect(second).rejects.toMatchObject({ code: RequestCancelledCode })
+  })
+  
+  it("rejects pending & later requests once closed, and closes the port once", async () => {
+    const { port, client } = newClient(),
+      pending = client.executeRequest("ping", "what")
+    
+    client.close()
+    client.close()
+    
+    await expect(pending).rejects.toMatchObject({ code: RequestCancelledCode })
+    await expect(client.executeRequest("ping", "late")).rejects.toMatchObject({ code: RequestCancelledCode })
+    expect(port.closeCount).toBe(1)
+    expect(port.posted).toHaveLength(1)
   })
 })
