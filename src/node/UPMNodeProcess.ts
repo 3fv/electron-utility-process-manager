@@ -94,7 +94,8 @@ export class UPMNodeProcess
                 kind: UPM.MessageKind.Response,
                 messageId,
                 result: null,
-                error: err.message ?? err.toString()
+                error: err?.message ?? String(err),
+                errorDetail: UPM.toMessageError(err)
               }
           }
           port.postMessage(msg)

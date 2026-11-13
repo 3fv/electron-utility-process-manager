@@ -67,6 +67,26 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
   }
   
   /**
+   * Register a handler for the exit of the service, whether it
+   * follows a `stop()` (`expected`) or the process exited on its own
+   *
+   * @param handler
+   * @returns a function which removes the handler
+   */
+  addExitHandler(handler:UPM.ServiceExitHandler):() => void {
+    return this.exitHandlers_.add(handler)
+  }
+  
+  /**
+   * Remove a handler registered with `addExitHandler`
+   *
+   * @param handler
+   */
+  removeExitHandler(handler:UPM.ServiceExitHandler):void {
+    this.exitHandlers_.remove(handler)
+  }
+  
+  /**
    * Send request
    *
    * @param type
@@ -152,6 +172,8 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
   
   private eventHandlers_ = new UPM.ClientEventHandlers()
   
+  private exitHandlers_ = new UPM.ServiceExitHandlers()
+  
   private messageChannels_ = new Map<string, MessageChannelMain>()
   
   private onServiceExit(code:number) {
@@ -163,12 +185,14 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
       } else {
         log.warn(`kill deferred is already settled (code=${code})`)
       }
+      this.exitHandlers_.dispatch({ code, expected: true })
       return
     }
     this.killDeferred_ = Deferred.resolve(code)
     
     this.cancelAllPendingMessages()
     this.removeAllMessageChannels()
+    this.exitHandlers_.dispatch({ code, expected: false })
   }
   
   /**
@@ -304,7 +328,7 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
     const payload = (
             isDefined(payloadOrEnvelope?.["payload"]) ? payloadOrEnvelope["payload"] : payloadOrEnvelope
         ) as UPM.Message<ReqMap, Type>,
-        { messageId, result, error } = payload
+        { messageId, result, error, errorDetail } = payload
     
     // EVENT PUSHED BY THE SERVICE
     if (payload?.kind === UPM.MessageKind.Event) {
@@ -328,7 +352,7 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
       this.removePendingMessage(messageId)
       if (!!error) {
         log.error(error)
-        pending.deferred.reject(new Error(error))
+        pending.deferred.reject(UPM.toRequestError(error, errorDetail))
         return
       }
       pending.deferred.resolve(result)

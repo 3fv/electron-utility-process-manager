@@ -2,6 +2,7 @@ import { isDefined, isFunction } from "@3fv/guard"
 import { isMessagePort, isUtilityProcess } from "./guards.js"
 import Tracer from "tracer"
 import { ClientEventHandlers } from "./events.js"
+import { toRequestError } from "./errors.js"
 import {
   ClientEventHandler,
   Defaults,
@@ -182,7 +183,7 @@ export class MessagePortClient<
             [payloadOrEnvelope["channel"] ?? IPCChannel.UPMServiceMessage, payloadOrEnvelope["payload"]] :
             [IPCChannel.UPMServiceMessage, payloadOrEnvelope]
         ) as [string, Message<ReqMap, Type>],
-      { messageId, result, error } = payload
+      { messageId, result, error, errorDetail } = payload
     
     // EVENT PUSHED BY THE `utilityProcess`
     if (payload?.kind === MessageKind.Event) {
@@ -205,7 +206,7 @@ export class MessagePortClient<
       
       if (!!error) {
         log.error(error)
-        pending.deferred.reject(new Error(error))
+        pending.deferred.reject(toRequestError(error, errorDetail))
         return
       }
       pending.deferred.resolve(result)

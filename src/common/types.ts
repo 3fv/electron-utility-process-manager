@@ -1,5 +1,6 @@
 import type { UtilityProcess } from "electron"
 import { Deferred } from "@3fv/deferred"
+import type { MessageError } from "./errors.js"
 
 
 export const Defaults = { RequestTimeout: 120000 }
@@ -41,6 +42,11 @@ export interface Message<
   args?: Args
   result?: R
   error?: string
+  
+  /**
+   * The structured form of `error` (`code`, `details`, ...)
+   */
+  errorDetail?: MessageError
 }
 
 export interface NodeEnvelope<Payload extends {} = any> {
@@ -83,6 +89,27 @@ export type EventHandler = (clientId: string, port: Port, payload: any) => boole
  * to a client (`UPMNodeProcess.sendEvent`)
  */
 export type ClientEventHandler = (data: any) => void
+
+/**
+ * Describes the exit of a service (`utilityProcess`)
+ */
+export interface ServiceExitEvent {
+  /**
+   * The exit code of the process
+   */
+  code: number
+  
+  /**
+   * `true` when the exit follows a `stop()`,
+   * `false` when the process exited on its own (crash, ...)
+   */
+  expected: boolean
+}
+
+/**
+ * Handles the exit of a service (`UPMMainService.addExitHandler`)
+ */
+export type ServiceExitHandler = (event: ServiceExitEvent) => void
 
 /**
  * Port of any kind

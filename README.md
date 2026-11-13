@@ -74,6 +74,41 @@ const removeHandler = client.addEventHandler(data => {
 })
 ```
 
+### Request errors
+
+When a request handler in the utility process throws, the client's
+`executeRequest(...)` rejects with a `UPMRequestError` that carries the original
+error's `message`, `name`, `code` and `details`, plus its stack as `remoteStack`:
+
+```typescript
+import { UPMRequestError } from "@3fv/electron-utility-process-manager"
+
+try {
+  await service.executeRequest("load", "missing.json")
+} catch (err) {
+  if (err instanceof UPMRequestError && err.code === "ENOENT") {
+    console.warn(`Not found`, err.details)
+  }
+}
+```
+
+`details` must be structured-cloneable, since it crosses the process boundary.
+
+### Service exit
+
+`UPMMainService.addExitHandler` reports the exit of the utility process. It
+returns a function that removes the handler (`removeExitHandler(handler)` does
+the same). `expected` is `true` when the exit follows a `stop()` and `false`
+when the process exited on its own:
+
+```typescript
+const removeHandler = service.addExitHandler(({ code, expected }) => {
+  if (!expected) {
+    console.error(`Service exited unexpectedly (code=${code})`)
+  }
+})
+```
+
 ### Logging
 
 The library logs through `tracer`. Lifecycle messages (a service or a client
