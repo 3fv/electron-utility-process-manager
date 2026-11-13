@@ -50,6 +50,7 @@ async function start() {
   
   log.info("UPM manager ready, now creating service", upmManager)
   upmService = await upmManager.createService<PingPongExampleService>("complex", Path.join(__dirname, "complex-node.js"))
+  upmService.addEventHandler(data => log.info("Event pushed by the service to main", data))
   log.info("UPM service ready")
   
   upmService.sendEvent("test123")

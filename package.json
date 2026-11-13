@@ -84,11 +84,10 @@
     "build:watch": "pnpm run build --watch",
     "build:examples": "pnpm --filter @3fv/electron-utility-process-manager-examples run build",
     "example": "node ./scripts/run-example.mjs",
-    "test": "jest --passWithNoTests",
+    "test": "jest",
     "test:watch": "jest --watchAll --no-cache",
     "test:dev": "run-s build && run-p test:watch build:watch",
-    "preversion": "pnpm build",
-    "preversion::with-tests": "pnpm build && pnpm test",
+    "preversion": "pnpm build && pnpm test",
     "release": "gh workflow run release.yml --ref master -f bump=patch"
   },
   "publishConfig": {
@@ -105,8 +104,10 @@
   ],
   "files": [
     "lib",
+    "!lib/**/*.spec.*",
     "!lib/**/*.tsbuildinfo",
     "src",
+    "!src/**/*.spec.ts",
     "README.md"
   ],
   "dependencies": {

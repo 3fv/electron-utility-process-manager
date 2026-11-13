@@ -4,7 +4,7 @@ import { ipcRenderer } from "electron"
 import { assert } from "@3fv/guard"
 import Tracer from "tracer"
 
-const log = Tracer.colorConsole()
+const log = Tracer.colorConsole({ level: "info" })
 
 export class UPMRendererClientFactory {
   

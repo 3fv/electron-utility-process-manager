@@ -1,7 +1,9 @@
 import { isDefined, isFunction } from "@3fv/guard"
 import { isMessagePort, isUtilityProcess } from "./guards.js"
 import Tracer from "tracer"
+import { ClientEventHandlers } from "./events.js"
 import {
+  ClientEventHandler,
   Defaults,
   IPCChannel,
   Message, MessageKind, MessageRequestFn,
@@ -13,7 +15,7 @@ import {
 } from "./types.js"
 import { Deferred } from "@3fv/deferred"
 
-const log = Tracer.colorConsole()
+const log = Tracer.colorConsole({ level: "info" })
 
 /**
  * Service client interface maps a `MessageRequestMap`
@@ -45,6 +47,22 @@ export interface IMessageClient<
    * @param data
    */
   sendEvent(data: any): void
+  
+  /**
+   * Register a handler for events pushed by the
+   * `utilityProcess` (`UPMNodeProcess.sendEvent`)
+   *
+   * @param handler
+   * @returns a function which removes the handler
+   */
+  addEventHandler(handler: ClientEventHandler): () => void
+  
+  /**
+   * Remove a handler registered with `addEventHandler`
+   *
+   * @param handler
+   */
+  removeEventHandler(handler: ClientEventHandler): void
   
   /**
    * Execute a request, with a response expected
@@ -106,6 +124,13 @@ export class MessagePortClient<
   private readonly pendingMessages_ = new Map<number, PendingRequestMessage>()
   
   /**
+   * Handlers for events pushed by the `utilityProcess`
+   *
+   * @private
+   */
+  private readonly eventHandlers_ = new ClientEventHandlers()
+  
+  /**
    * Get the next `messageId`
    *
    * @returns {number}
@@ -159,10 +184,17 @@ export class MessagePortClient<
         ) as [string, Message<ReqMap, Type>],
       { messageId, result, error } = payload
     
+    // EVENT PUSHED BY THE `utilityProcess`
+    if (payload?.kind === MessageKind.Event) {
+      log.debug(`Event received (clientId=${this.clientId},messageId=${messageId})`)
+      this.eventHandlers_.dispatch(payload.eventData)
+      return
+    }
+    
     try {
       const pending = this.pendingMessages_.get(messageId)
       if (!pending) {
-        log.info(`Unable to find pending record ${messageId}`)
+        log.debug(`Unable to find pending record ${messageId}`)
         return
       }
       
@@ -192,6 +224,14 @@ export class MessagePortClient<
     }
     
     this.port.postMessage(payload)
+  }
+  
+  addEventHandler(handler: ClientEventHandler): () => void {
+    return this.eventHandlers_.add(handler)
+  }
+  
+  removeEventHandler(handler: ClientEventHandler): void {
+    this.eventHandlers_.remove(handler)
   }
   
   async executeRequest<

@@ -59,6 +59,8 @@ async function start() {
   })
   log.info("UPM service ready")
   
+  upmService.addEventHandler(data => log.info("Event pushed by the service to main", data))
+  
   upmService.sendEvent("test123")
 
   const clientPort = upmManager.createMainChannel("simple", "main-channel-01")
@@ -77,6 +79,7 @@ async function start() {
 
   log.info(`Creating port client`)
   const client = upmManager.createMainClient("simple", "main-client-01")
+  client.addEventHandler(data => log.info("Event pushed by the service to main-client-01", data))
   log.info(`Send request/response: ping`)
   
   const pongResult = await client.executeRequest("ping", "main")

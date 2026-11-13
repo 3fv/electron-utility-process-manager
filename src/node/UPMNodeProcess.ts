@@ -4,7 +4,13 @@ import * as UPM from "../common/index.js"
 import Tracer from "tracer"
 import { Future } from "@3fv/prelude-ts"
 
-const log = Tracer.colorConsole()
+const log = Tracer.colorConsole({ level: "info" })
+
+/**
+ * `clientId` of the main process, which is
+ * reached through `process.parentPort`
+ */
+export const MainClientId = "main"
 
 export class UPMNodeProcess
 {
@@ -16,16 +22,26 @@ export class UPMNodeProcess
   
   private readonly eventHandlers_ = Array<UPM.EventHandler>()
   
+  private messageIdSeq_ = 0
+  
   private onServiceClientPort(clientId: string, port: Electron.MessagePortMain) {
     log.info(`Received new client port for clientId (${clientId})`)
-    assert(!this.clientPorts_.has(clientId), `port already registered for clientId(${clientId})`)
+    
+    // A CLIENT WHICH RECONNECTS (i.e. A RELOADED RENDERER) REPLACES ITS PORT
+    const existingPort = this.clientPorts_.get(clientId)
+    if (existingPort) {
+      log.warn(`Replacing the port registered for clientId (${clientId})`)
+      this.clientPorts_.delete(clientId)
+      existingPort.close()
+    }
+    this.clientPorts_.set(clientId, port)
     
     port.on("message", (ev: Electron.MessageEvent) => {
       const envelope = (
           ev.data?.message ?? ev.data
         ) as UPM.NodeEnvelope,
         { channel, payload } = envelope
-      log.info(`Message received on client port (${clientId})`, envelope)
+      log.debug(`Message received on client port (${clientId})`, envelope)
       
       assert(
         channel === UPM.IPCChannel.UPMServiceMessage,
@@ -36,14 +52,16 @@ export class UPMNodeProcess
     })
     
     port.on("close", () => {
-      this.clientPorts_.delete(clientId)
+      if (this.clientPorts_.get(clientId) === port) {
+        this.clientPorts_.delete(clientId)
+      }
     })
     
     port.start()
   }
   
   private async onServiceMessage(clientId: string, port: UPM.Port, payload: UPM.Message<any, any>) {
-    log.info(`onServiceMessage from (clientId=${clientId})`, payload)
+    log.debug(`onServiceMessage from (clientId=${clientId})`, payload)
     const { messageId, kind, args, eventData, type } = payload
     await match(kind)
       .with(UPM.MessageKind.Request, async () => {
@@ -92,7 +110,7 @@ export class UPMNodeProcess
             }
             
             if (res === true) {
-              log.info(`Successfully handled (${messageId}) event`)
+              log.debug(`Successfully handled (${messageId}) event`)
               return
             }
           }
@@ -107,12 +125,12 @@ export class UPMNodeProcess
   }
   
   private onMessage(port: UPM.Port, message: Electron.MessageEvent) {
-    log.info(`Message received on utilityProcess`, message.data)
+    log.debug(`Message received on utilityProcess`, message.data)
     const { channel, payload } = (
       message.data?.message ?? message.data
     ) as UPM.NodeEnvelope
     match(channel)
-      .when(c => c === UPM.IPCChannel.UPMServiceMessage, () => this.onServiceMessage("main", port, payload))
+      .when(c => c === UPM.IPCChannel.UPMServiceMessage, () => this.onServiceMessage(MainClientId, port, payload))
       .when(
         c => c === UPM.IPCChannel.UPMServiceNewClient,
         () => this.onServiceClientPort(payload.clientId, message.ports[0])
@@ -138,6 +156,53 @@ export class UPMNodeProcess
   addEventHandler(handler: UPM.EventHandler) {
     log.info(`Registering event handler`)
     this.eventHandlers_.push(handler)
+  }
+  
+  /**
+   * The `clientId` of every client which can currently
+   * be pushed an event: the main process (`MainClientId`)
+   * and each client with an open port
+   */
+  get clientIds(): string[] {
+    return [MainClientId, ...this.clientPorts_.keys()]
+  }
+  
+  /**
+   * Push an event from the `utilityProcess` to its clients
+   * as `fire-and-forget`; a client receives it through
+   * the handlers it registered with `addEventHandler`.
+   *
+   * @param data any structured-cloneable value
+   * @param clientIds the clients to push to, every client
+   *   (the main process included) when none are given
+   * @returns the `clientId` of each client the event was posted to
+   */
+  sendEvent(data: any, ...clientIds: string[]): string[] {
+    const messageId = this.messageIdSeq_++,
+      envelope: UPM.NodeEnvelope = {
+        channel: UPM.IPCChannel.UPMServiceMessage,
+        payload: { messageId, eventData: data, kind: UPM.MessageKind.Event }
+      },
+      targetIds = clientIds.length ? [...new Set(clientIds)] : this.clientIds,
+      sentIds = Array<string>()
+    
+    for (const clientId of targetIds) {
+      const port = clientId === MainClientId ? this.processPort : this.clientPorts_.get(clientId)
+      if (!port) {
+        log.warn(`Unable to send event (${messageId}), no port for clientId (${clientId})`)
+        continue
+      }
+      
+      try {
+        port.postMessage(envelope)
+        sentIds.push(clientId)
+      } catch (err) {
+        log.error(`Unable to send event (${messageId}) to clientId (${clientId})`, err)
+      }
+    }
+    
+    log.debug(`Sent event (${messageId}) to clients`, sentIds)
+    return sentIds
   }
   
   /**

@@ -11,6 +11,9 @@ upmNodeProcess.addEventHandler((clientId, port, payload) => {
 
 upmNodeProcess.addRequestHandler("ping", async (type, messageId, what: string) => {
   log.info(`Ping request received (${messageId})`, what)
+  
+  // PUSH AN EVENT TO EVERY CLIENT (THE MAIN PROCESS INCLUDED)
+  upmNodeProcess.sendEvent({ pinged: what })
   return `pong: ${what}`
 })
 

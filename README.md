@@ -43,6 +43,44 @@ upmMainServiceManager.createService("example-service", "/path/to/entry.js", opti
 >  the process will print a chrome debugging url (i.e. `ws://`)
 
 
+### Pushing events from the utility process
+
+`sendEvent` on the `node` side pushes any structured-cloneable value from the
+utility process to its clients, as fire-and-forget. With no `clientId` it goes
+to every client: the main process (`"main"`, exported as `MainClientId`) and
+each client holding a port.
+
+```typescript
+import upmNodeProcess, { MainClientId } from "@3fv/electron-utility-process-manager/node"
+
+// EVERY CLIENT
+upmNodeProcess.sendEvent({ progress: 0.5 })
+
+// ONLY THE NAMED CLIENTS, RETURNS THE IDS IT WAS POSTED TO
+upmNodeProcess.sendEvent({ progress: 0.5 }, MainClientId, "renderer-01")
+
+// THE IDS WHICH CAN CURRENTLY BE PUSHED TO
+upmNodeProcess.clientIds
+```
+
+Every client (`UPMMainService` in the main process and the `MessagePortClient`
+returned by `createMainClient` or `UPMRendererClientFactory.createClient`)
+receives pushed events through `addEventHandler`, which returns a function that
+removes the handler (`removeEventHandler(handler)` does the same):
+
+```typescript
+const removeHandler = client.addEventHandler(data => {
+  console.info(`Event pushed by the service`, data)
+})
+```
+
+### Logging
+
+The library logs through `tracer`. Lifecycle messages (a service or a client
+port being created, handlers being registered), warnings and errors are
+written; the per-message lines (each message received, handled or sent) are
+logged at `debug` and are not written.
+
 ### Examples
 
 #### Simple Example
@@ -187,7 +225,7 @@ on the library through `workspace:*`.
 | `pnpm build:watch`                       | Same, in watch mode                                             |
 | `pnpm build:examples`                    | Compiles `examples/` to `examples/lib-examples` (build first)   |
 | `pnpm example --example=<simple\|complex>` | Runs a built example in Electron, restarting it on changes    |
-| `pnpm test`                              | Runs jest over the compiled specs in `lib/cjs` (none exist yet) |
+| `pnpm test`                              | Runs jest over the compiled specs in `lib/cjs` (build first)    |
 | `pnpm release`                           | Starts the GitHub Actions release workflow (patch bump)         |
 
 The package is a hybrid: `lib/mjs` holds the ES modules and `lib/cjs` the
@@ -211,7 +249,7 @@ started by `pnpm release` or by
 `gh workflow run release.yml --ref master -f bump=<patch|minor|major|none>` (add
 `-f dist-tag=<tag>` to publish under a tag other than `latest`):
 
-1. The `version` job runs `pnpm version`, which builds the package
+1. The `version` job runs `pnpm version`, which builds and tests the package
    (`preversion`), commits and tags `vX.Y.Z`, and pushes both to `master`.
 2. The `publish` job checks out that tag, builds it and runs `npm publish`
    through npm trusted publishing, so no npm token or two-factor prompt is
@@ -227,4 +265,4 @@ Trusted publishing needs a one-time registration of the workflow on npm:
 ## TODO
 
 - [x] CI/CD (release workflow)
-- [ ] Tests
+- [ ] Tests (client-side event dispatch is covered; the Electron processes are not)

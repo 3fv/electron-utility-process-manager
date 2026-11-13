@@ -6,7 +6,7 @@ import UPMMainService from "./UPMMainService.js"
 
 import Tracer from "tracer"
 
-const log = Tracer.colorConsole()
+const log = Tracer.colorConsole({ level: "info" })
 
 
 

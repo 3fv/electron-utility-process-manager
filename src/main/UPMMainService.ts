@@ -1,7 +1,7 @@
 import {
   app, MessageChannelMain, MessagePortMain, utilityProcess, UtilityProcess
 } from "electron"
-import { assert, getValue, isNumber, isString } from "@3fv/guard"
+import { assert, getValue, isDefined, isNumber, isString } from "@3fv/guard"
 import Fs from "fs"
 import { Deferred } from "@3fv/deferred"
 import * as UPM from "../common/index.js"
@@ -12,7 +12,7 @@ import Tracer from "tracer"
 import { asOption } from "@3fv/prelude-ts"
 import { match } from "ts-pattern"
 
-const log = Tracer.colorConsole()
+const log = Tracer.colorConsole({ level: "info" })
 const isNotEmpty = negate(isEmpty)
 
 /**
@@ -44,6 +44,26 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
     }
     
     port.postMessage(payload)
+  }
+  
+  /**
+   * Register a handler for events the service pushes to
+   * the main process (`UPMNodeProcess.sendEvent`)
+   *
+   * @param handler
+   * @returns a function which removes the handler
+   */
+  addEventHandler(handler:UPM.ClientEventHandler):() => void {
+    return this.eventHandlers_.add(handler)
+  }
+  
+  /**
+   * Remove a handler registered with `addEventHandler`
+   *
+   * @param handler
+   */
+  removeEventHandler(handler:UPM.ClientEventHandler):void {
+    this.eventHandlers_.remove(handler)
   }
   
   /**
@@ -129,6 +149,8 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
   private childProcess_:UtilityProcess = null
   
   private pendingMessages_ = new Map<number, UPM.PendingRequestMessage>()
+  
+  private eventHandlers_ = new UPM.ClientEventHandlers()
   
   private messageChannels_ = new Map<string, MessageChannelMain>()
   
@@ -271,20 +293,30 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
   }
   
   /**
-   * OnMessage really only handles `results` from
-   * `executeRequest(...)`; this may be expanded in
-   * the future
+   * Handles what the service posts on its parent port:
+   * `results` of `executeRequest(...)` & events pushed
+   * with `UPMNodeProcess.sendEvent(...)`
    *
-   * @param payload
+   * @param payloadOrEnvelope the service posts a `NodeEnvelope`
    * @private
    */
-  private onMessage<Type extends MType = any>(payload:UPM.Message<ReqMap, Type>) {
-    const { messageId, result, error } = payload
+  private onMessage<Type extends MType = any>(payloadOrEnvelope:UPM.Message<ReqMap, Type> | UPM.NodeMessage<ReqMap, Type>) {
+    const payload = (
+            isDefined(payloadOrEnvelope?.["payload"]) ? payloadOrEnvelope["payload"] : payloadOrEnvelope
+        ) as UPM.Message<ReqMap, Type>,
+        { messageId, result, error } = payload
+    
+    // EVENT PUSHED BY THE SERVICE
+    if (payload?.kind === UPM.MessageKind.Event) {
+      log.debug(`Event received from service (${this.serviceName},messageId=${messageId})`)
+      this.eventHandlers_.dispatch(payload.eventData)
+      return
+    }
     
     try {
       const pending = this.pendingMessages_.get(messageId)
       if (!pending) {
-        log.info(`Unable to find pending record ${messageId}`)
+        log.debug(`Unable to find pending record ${messageId}`)
         return
       }
       

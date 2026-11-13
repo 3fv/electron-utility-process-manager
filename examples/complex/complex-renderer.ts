@@ -10,6 +10,8 @@ async function complexExampleUPM() {
   const messageClient = await UPMRendererClientFactory.createClient<PingPongExampleService>("complex",`${process.type}-01`),
     serviceClient = messageClient.getServiceClient()
   
+  messageClient.addEventHandler(data => log.info("Event pushed by the service to the renderer", data))
+  
   const messageResult = await messageClient.executeRequest("ping", process.type),
     serviceResult = await serviceClient.ping(process.type)
   

@@ -79,6 +79,12 @@ export interface PendingRequestMessage<
 export type EventHandler = (clientId: string, port: Port, payload: any) => boolean
 
 /**
+ * Handles an event pushed by the `utilityProcess`
+ * to a client (`UPMNodeProcess.sendEvent`)
+ */
+export type ClientEventHandler = (data: any) => void
+
+/**
  * Port of any kind
  */
 export type Port = MessagePort | Electron.MessagePortMain | Electron.ParentPort | UtilityProcess
