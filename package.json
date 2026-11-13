@@ -1,6 +1,6 @@
 {
   "name": "@3fv/electron-utility-process-manager",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "packageManager": "pnpm@12.15.0",
   "description": "electron-utility-process-manager",
   "author": "Jonathan Glanz",
