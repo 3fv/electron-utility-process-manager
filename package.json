@@ -1,6 +1,7 @@
 {
   "name": "@3fv/electron-utility-process-manager",
   "version": "1.0.6",
+  "packageManager": "pnpm@12.15.0",
   "description": "electron-utility-process-manager",
   "author": "Jonathan Glanz",
   "license": "MIT",
@@ -11,54 +12,91 @@
   "type": "commonjs",
   "main": "./lib/cjs/index.js",
   "module": "./lib/mjs/index.js",
-  "types": "./lib/mjs/index.d.ts",
+  "types": "./lib/cjs/index.d.ts",
   "exports": {
     ".": {
-      "types": "./lib/mjs/index.d.ts",
-      "node": "./lib/cjs/index.js",
-      "browser": "./lib/cjs/index.js",
-      "import": "./lib/mjs/index.js",
-      "require": "./lib/cjs/index.js"
+      "node": {
+        "types": "./lib/cjs/index.d.ts",
+        "default": "./lib/cjs/index.js"
+      },
+      "browser": {
+        "types": "./lib/cjs/index.d.ts",
+        "default": "./lib/cjs/index.js"
+      },
+      "import": {
+        "types": "./lib/mjs/index.d.ts",
+        "default": "./lib/mjs/index.js"
+      },
+      "require": {
+        "types": "./lib/cjs/index.d.ts",
+        "default": "./lib/cjs/index.js"
+      }
     },
     "./main": {
-      "types": "./lib/mjs/main/index.d.ts",
-      "node": "./lib/cjs/main/index.js",
-      "import": "./lib/mjs/main/index.js",
-      "require": "./lib/cjs/main/index.js"
+      "node": {
+        "types": "./lib/cjs/main/index.d.ts",
+        "default": "./lib/cjs/main/index.js"
+      },
+      "import": {
+        "types": "./lib/mjs/main/index.d.ts",
+        "default": "./lib/mjs/main/index.js"
+      },
+      "require": {
+        "types": "./lib/cjs/main/index.d.ts",
+        "default": "./lib/cjs/main/index.js"
+      }
     },
     "./renderer": {
-      "types": "./lib/mjs/renderer/index.d.ts",
-      "node": "./lib/cjs/renderer/index.js",
-      "browser": "./lib/cjs/renderer/index.js",
-      "import": "./lib/mjs/renderer/index.js",
-      "require": "./lib/cjs/renderer/index.js"
+      "node": {
+        "types": "./lib/cjs/renderer/index.d.ts",
+        "default": "./lib/cjs/renderer/index.js"
+      },
+      "browser": {
+        "types": "./lib/cjs/renderer/index.d.ts",
+        "default": "./lib/cjs/renderer/index.js"
+      },
+      "import": {
+        "types": "./lib/mjs/renderer/index.d.ts",
+        "default": "./lib/mjs/renderer/index.js"
+      },
+      "require": {
+        "types": "./lib/cjs/renderer/index.d.ts",
+        "default": "./lib/cjs/renderer/index.js"
+      }
     },
     "./node": {
-      "types": "./lib/mjs/node/index.d.ts",
-      "node": "./lib/cjs/node/index.js",
-      "import": "./lib/mjs/node/index.js",
-      "require": "./lib/cjs/node/index.js"
+      "node": {
+        "types": "./lib/cjs/node/index.d.ts",
+        "default": "./lib/cjs/node/index.js"
+      },
+      "import": {
+        "types": "./lib/mjs/node/index.d.ts",
+        "default": "./lib/mjs/node/index.js"
+      },
+      "require": {
+        "types": "./lib/cjs/node/index.d.ts",
+        "default": "./lib/cjs/node/index.js"
+      }
     }
   },
   "scripts": {
     "build": "node ./scripts/build.mjs",
-    "build:link": "yarn run build && yarn unlink;yarn link",
-    "build:watch": "run-s build:link && yarn run build --watch",
-    "test": "yarn run build && jest",
-    "test:watch": "yarn run build && jest --watchAll --no-cache",
+    "build:watch": "pnpm run build --watch",
+    "build:examples": "pnpm --filter @3fv/electron-utility-process-manager-examples run build",
+    "example": "node ./scripts/run-example.mjs",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watchAll --no-cache",
     "test:dev": "run-s build && run-p test:watch build:watch",
-    "preversion": "yarn build",
-    "preversion::with-tests": "yarn build && yarn test",
-    "clean": "./scripts/clean.sh",
-    "postversion": "node ./scripts/release.mjs latest",
-    "release": "yarn build  && yarn version --patch --non-interactive"
+    "preversion": "pnpm build",
+    "preversion::with-tests": "pnpm build && pnpm test",
+    "release": "gh workflow run release.yml --ref master -f bump=patch"
   },
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/3fv/electron-utility-process-manager.git"
+    "url": "git+https://github.com/3fv/electron-utility-process-manager.git"
   },
   "keywords": [
     "typescript",
@@ -66,15 +104,15 @@
     "proxy"
   ],
   "files": [
-    "**/*.d.ts",
-    "**/*.js",
-    "**/*.map",
-    "package.json"
+    "lib",
+    "!lib/**/*.tsbuildinfo",
+    "src",
+    "README.md"
   ],
   "dependencies": {
-    "@3fv/deferred": "^1.2.12",
-    "@3fv/guard": "^1.4.38",
-    "@3fv/prelude-ts": "^0.8.32",
+    "@3fv/deferred": "^1.2.17",
+    "@3fv/guard": "^1.4.41",
+    "@3fv/prelude-ts": "^0.8.45",
     "chalk": "^5.3.0",
     "debug": "^4.3.6",
     "lodash": "^4.17.21",
@@ -88,14 +126,14 @@
     "@faker-js/faker": "^8.4.1",
     "@types/chalk": "^2.2.0",
     "@types/debug": "^4.1.12",
-    "@types/jest": "^29.5.12",
+    "@types/jest": "^30.0.0",
     "@types/lodash": "^4.17.7",
     "@types/node": "^22.9.0",
     "@types/shelljs": "^0.8.15",
     "cross-env": "^7.0.3",
     "electron": "31.3.0",
     "electronmon": "^2.0.3",
-    "jest": "^29.7.0",
+    "jest": "^30.5.2",
     "lodash": "^4.17.21",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.3.3",
@@ -103,9 +141,9 @@
     "shelljs": "^0.8.5",
     "source-map-support": "^0.5.21",
     "supports-color": "^9.4.0",
-    "ts-jest": "^29.2.4",
+    "ts-jest": "^29.4.15",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.4",
+    "typescript": "^6.0.3",
     "zx": "^8.1.4"
   }
 }

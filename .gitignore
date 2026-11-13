@@ -1,10 +1,19 @@
 target
 /.vscode
 test-results.*
+*.tsbuildinfo
 lib
 lib-examples
 dist
+# pnpm is the package manager and pnpm-lock.yaml is tracked;
+# lockfiles of other package managers are never committed.
 yarn.lock
+package-lock.json
+
+# Local agent tooling state
+.omc*
+.omx*
+.remember
 ### JetBrains template
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio and Webstorm
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839

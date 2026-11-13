@@ -1,0 +1,7 @@
+packages:
+  - .
+  - examples
+
+allowBuilds:
+  electron: true
+  "@parcel/watcher": false

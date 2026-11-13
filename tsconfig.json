@@ -1,8 +1,7 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"composite": true,
-		"baseUrl": "./",
+		"composite": true
 	},
 	"references": [
 		{ "path": "./tsconfig.mjs.json"},

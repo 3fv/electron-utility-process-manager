@@ -1,0 +1,88 @@
+name: Release
+
+# Bumps the version, commits and tags it on the dispatched branch, then
+# publishes that tag to npm through trusted publishing (GitHub OIDC), so no npm
+# token or interactive two-factor prompt is involved.
+#
+# A failed publish job can be re-run on its own: it publishes the tag the
+# version job already pushed. `bump: none` publishes the version already in
+# package.json at the dispatched commit, without bumping or tagging.
+#
+# pnpm is installed at the version pinned by the `packageManager` field of
+# package.json.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description:
+          Version bump ("none" publishes the current package.json version)
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - none
+        default: patch
+      dist-tag:
+        description: npm dist-tag to publish under
+        type: string
+        default: latest
+
+jobs:
+  version:
+    name: Bump version and tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      ref: ${{ steps.release-ref.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - name: Install pnpm
+        run:
+          npm install -g "$(node -p "require('./package.json').packageManager")"
+      - run: pnpm install --frozen-lockfile
+      - name: Bump version, commit, tag and push
+        if: inputs.bump != 'none'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          pnpm version ${{ inputs.bump }} --message "v%s"
+          git push --follow-tags origin "HEAD:${GITHUB_REF_NAME}"
+      - name: Resolve the ref to publish
+        id: release-ref
+        run: |
+          if [ "${{ inputs.bump }}" = "none" ]; then
+            echo "ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Publish to npm
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.version.outputs.ref }}
+      # No `registry-url`: trusted publishing authenticates through OIDC, so no
+      # .npmrc token is configured.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - name: Install pnpm
+        run:
+          npm install -g "$(node -p "require('./package.json').packageManager")"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # npm performs the trusted-publishing OIDC exchange that this workflow is
+      # registered for on npmjs.com.
+      - run: npm publish --tag "${{ inputs.dist-tag }}"

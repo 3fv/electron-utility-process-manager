@@ -8,7 +8,7 @@ single library & provides fully typed client facades automatically
 ## Install
 
 ```shell
-yarn add @3fv/electron-utility-process-manager
+pnpm add @3fv/electron-utility-process-manager
 ```
 
 ## Usage
@@ -173,7 +173,57 @@ export {}
 Checkout the [source here](examples/complex), it's basically the simple example,
 but fully typed
 
+## Commands
+
+[pnpm](https://pnpm.io) is the package manager, at the version pinned by the
+`packageManager` field of `package.json`. The repository is a pnpm workspace of
+two packages: the library at the root and [`examples`](examples), which depends
+on the library through `workspace:*`.
+
+| Command                                  | What it does                                                    |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| `pnpm install`                           | Installs dependencies from `pnpm-lock.yaml`                     |
+| `pnpm build`                             | Compiles `src/` to `lib/mjs` and `lib/cjs` (`tsc -b`)           |
+| `pnpm build:watch`                       | Same, in watch mode                                             |
+| `pnpm build:examples`                    | Compiles `examples/` to `examples/lib-examples` (build first)   |
+| `pnpm example --example=<simple\|complex>` | Runs a built example in Electron, restarting it on changes    |
+| `pnpm test`                              | Runs jest over the compiled specs in `lib/cjs` (none exist yet) |
+| `pnpm release`                           | Starts the GitHub Actions release workflow (patch bump)         |
+
+The package is a hybrid: `lib/mjs` holds the ES modules and `lib/cjs` the
+CommonJS build, selected through the `exports` map of `package.json`. The
+`node` and `browser` conditions come first in that map and select the CommonJS
+build, so Node and Electron load `lib/cjs` for `import` as well as `require`.
+
+`pnpm-workspace.yaml` allows the `electron` install script, which downloads the
+Electron binary that the examples run, and denies the `@parcel/watcher` one,
+whose native binary comes from its optional dependencies.
+
+To use a local checkout from another project, run
+`pnpm link /path/to/electron-utility-process-manager` in that project after
+`pnpm build` here.
+
+## Releasing
+
+Releases run entirely in GitHub Actions (`.github/workflows/release.yml`),
+started by `pnpm release` or by
+`gh workflow run release.yml --ref master -f bump=<patch|minor|major|none>` (add
+`-f dist-tag=<tag>` to publish under a tag other than `latest`):
+
+1. The `version` job runs `pnpm version`, which builds the package
+   (`preversion`), commits and tags `vX.Y.Z`, and pushes both to `master`.
+2. The `publish` job checks out that tag, builds it and runs `npm publish`
+   through npm trusted publishing, so no npm token or two-factor prompt is
+   involved. If it fails, re-run that job alone: it publishes the same tag.
+
+`bump=none` publishes the version already in `package.json` at the dispatched
+commit without bumping or tagging.
+
+Trusted publishing needs a one-time registration of the workflow on npm:
+
+    npm trust github @3fv/electron-utility-process-manager --repo 3fv/electron-utility-process-manager --file release.yml --allow-publish
+
 ## TODO
 
-- [ ] CI/CD
+- [x] CI/CD (release workflow)
 - [ ] Tests

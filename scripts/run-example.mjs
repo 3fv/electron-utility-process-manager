@@ -33,7 +33,7 @@ ElectronMon({
     mainJs
   ],
   patterns: [
-    `lib/examples-cjs/${exampleName}/**/*.*`,
+    `examples/lib-examples/${exampleName}/**/*.*`,
     `lib/cjs/**/*`,
     `!.idea`,
     `!.idea/**/*`,

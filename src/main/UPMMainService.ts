@@ -2,10 +2,12 @@ import {
   app, MessageChannelMain, MessagePortMain, utilityProcess, UtilityProcess
 } from "electron"
 import { assert, getValue, isNumber, isString } from "@3fv/guard"
-import Fsx from "fs-extra"
+import Fs from "fs"
 import { Deferred } from "@3fv/deferred"
 import * as UPM from "../common/index.js"
-import { defaults, isEmpty, negate } from "lodash"
+import defaults from "lodash/defaults.js"
+import isEmpty from "lodash/isEmpty.js"
+import negate from "lodash/negate.js"
 import Tracer from "tracer"
 import { asOption } from "@3fv/prelude-ts"
 import { match } from "ts-pattern"
@@ -435,7 +437,7 @@ export class UPMMainService<ReqMap extends UPM.MessageRequestMap = any, MType ex
   ) {
     assert(isString(entryFile) &&
         isNotEmpty(entryFile) &&
-        Fsx.existsSync(entryFile), `entry file must be provided (${entryFile})`)
+        Fs.existsSync(entryFile), `entry file must be provided (${entryFile})`)
     
     this.config_ = defaults({
       ...options

@@ -2,9 +2,9 @@
   "extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"target": "es2017",
+		"rootDir": "./src",
 		"outDir": "./lib/mjs",
-		"module": "ES2020",
-		"moduleResolution": "Node"
+		"module": "ES2020"
 	},
 	"include": ["src/**/*.*"]
 }

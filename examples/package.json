@@ -1,11 +1,12 @@
 {
   "name": "@3fv/electron-utility-process-manager-examples",
   "version": "1.0.0",
+  "private": true,
   "description": "electron-utility-process-manager-examples",
-  "main": "./lib/simple/simple-main.js",
+  "main": "./lib-examples/simple/simple-main.js",
   "scripts": {
     "build": "tsc -b tsconfig.json",
-    "build:watch": "yarn run build -w"
+    "build:watch": "pnpm run build -w"
   },
   "publishConfig": {
     "access": "restricted"
@@ -19,8 +20,7 @@
     "lodash": "^4.17.21",
     "tracer": "^1.3.0",
     "ts-pattern": "^5.5.0",
-    "electron": "^30",
-    "@3fv/electron-utility-process-manager": "1.0.0"
+    "electron": "31.3.0",
+    "@3fv/electron-utility-process-manager": "workspace:*"
   }
-  
 }
