@@ -195,9 +195,10 @@ CommonJS build, selected through the `exports` map of `package.json`. The
 `node` and `browser` conditions come first in that map and select the CommonJS
 build, so Node and Electron load `lib/cjs` for `import` as well as `require`.
 
-`pnpm-workspace.yaml` allows the `electron` install script, which downloads the
-Electron binary that the examples run, and denies the `@parcel/watcher` one,
-whose native binary comes from its optional dependencies.
+Electron downloads its binary the first time it runs, so `pnpm install` does not
+fetch it. `pnpm-workspace.yaml` denies the `@parcel/watcher` install script; its
+native binary comes from its optional dependencies. It also sets
+`minimumReleaseAge: 0`, so a dependency released within the last day installs.
 
 To use a local checkout from another project, run
 `pnpm link /path/to/electron-utility-process-manager` in that project after
